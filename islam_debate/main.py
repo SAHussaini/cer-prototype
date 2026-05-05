@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from islam_debate.debater import Debater
 from islam_debate.llm_clients import get_llm_client
 from islam_debate.utils import generate_filename, save_html, save_json
+from islam_debate.adviser import Adviser
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,69 @@ LOG_LEVELS: Dict[str, int] = {
 }
 
 
-def main(model: str, topic: str, llm_type: str, num_rounds: int) -> Dict[str, Any]:
+def main(model: str, topic: str, llm_type: str, num_rounds: int, mode: str="advise") -> Dict[str, Any]:
+    if mode == 'advise':
+        return advise(model, topic, llm_type, num_rounds)
+    elif mode == 'debate':
+        return debate(model, topic, llm_type, num_rounds)
+    else:
+        return {"error": f"Invalid mode: {mode}. Please choose 'advise' or 'debate'."}
+    
+def advise(model: str, topic: str, llm_type: str, num_rounds: int) -> Dict[str, Any]:
+    start_time = time.time()
+    llm_client = get_llm_client(llm_type)
+    client: Adviser = Adviser(llm_client, model, topic, "teenager having radical ideation")
+    adviser: Adviser = Adviser(llm_client, model, topic, "agent the teenager trusts")
+
+    conversation_results: Dict[str, Any] = {
+        "metadata": {
+            "model": model,
+            "topic": topic,
+            "llm_type": llm_type,
+            "num_rounds": num_rounds,
+            "date": datetime.now().isoformat(),
+        },
+        "conversation": {},
+    }
+
+    logger.info("Starting conversation...")
+    conversation_results["conversation"]["opening_arguments"] = {
+        "client": client.start(),
+        "adviser": adviser.start(),
+    }
+
+    logger.debug("\nInitial arguments:")
+    logger.debug(f"Client: {conversation_results['conversation']['opening_arguments']['client']}")
+    logger.debug(
+        f"\nAdviser: {conversation_results['conversation']['opening_arguments']['adviser']}"
+    )
+
+    for round in range(1, num_rounds + 1):
+        logger.debug(f"\nRound {round}:")
+        round_key = f"round_{round}"
+        conversation_results["conversation"][round_key] = {
+            "client": client.respond_to(adviser.responses[-1]),
+            "adviser": adviser.respond_to(client.responses[-1]),
+        }
+
+        logger.debug(f"Client: {conversation_results['conversation'][round_key]['client']}")
+        logger.debug(f"\nAdviser: {conversation_results['conversation'][round_key]['adviser']}")
+
+    logger.debug("\nConcluding statements:")
+    conversation_results["conversation"]["conclusions"] = {
+        "client": client.conclude(),
+        "adviser": adviser.conclude(),
+    }
+
+    logger.debug(f"Client: {conversation_results['conversation']['conclusions']['client']}")
+    logger.debug(f"\nAdviser: {conversation_results['conversation']['conclusions']['adviser']}")
+
+    end_time = time.time()
+    conversation_results["metadata"]["time_taken"] = end_time - start_time
+
+    return conversation_results
+
+def debate(model: str, topic: str, llm_type: str, num_rounds: int) -> Dict[str, Any]:
     start_time = time.time()
     llm_client = get_llm_client(llm_type)
     for_debater: Debater = Debater(llm_client, model, topic, "for")
