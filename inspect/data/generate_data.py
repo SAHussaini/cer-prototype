@@ -112,6 +112,7 @@ class DataGenerator:
         pass
 
 class BeliefBias(DataGenerator):
+    #TODO: probably need to add some metadata to help with the determining severity or category of risk
     def rule_match(self, args) -> str | None:
         if args in ["C1IN", "C2IN", "C5IP", "C6IP"]:
             return "S4"
