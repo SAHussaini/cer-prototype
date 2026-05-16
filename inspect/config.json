@@ -1,0 +1,25 @@
+{
+  "base_dir": ".",
+  "data_dir": "data",
+
+  "user_model": {
+    "name": "hf/meta-llama/Llama-3.1-8B-Instruct",
+    "config": {}
+  },
+  "assistant_model": {
+    "name": "hf/meta-llama/Llama-3.1-8B-Instruct",
+    "config": {}
+  },
+  "monitoring_model_1": {
+    "name": "hf/meta-llama/Llama-3.1-8B-Instruct",
+    "config": {}
+  },
+  "monitoring_model_2": {
+    "name": "hf/Qwen/Qwen2.5-7B-Instruct",
+    "config": {}
+  },
+
+  "tasks_to_run": {
+    "belief_bias": true
+  }
+}

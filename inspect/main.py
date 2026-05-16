@@ -1,35 +1,61 @@
-import os
-
-from data.generate_data import *
-from config import *
-from solver.dialogue_solver import dialogue_solver
-from inspect_ai import Task, task
-from inspect_ai.dataset import csv_dataset, FieldSpec
-from inspect_ai.scorer import model_graded_fact
-from inspect_ai.solver import generate, system_message
 import json
+import os
+from inspect_ai import eval
+from data.generate_data import *
+from inspect_ai.model import GenerateConfig, get_model, Model
+import pathlib
+from inspect.task import belief_bias_task
 
-if __name__ == "__main__":
-    with open(DATA_DIR/"risks.json", 'r') as f:
-        risks_json = json.load(f)
+config_json = {}
+risks_json = {}
 
-@task
-def belief_bias_task() -> Task:
-    # Generate data for belief bias
-    belief_bias_generator = BeliefBias()
-    belief_bias_data = belief_bias_generator.generate_data()
-    belief_bias_generator.save_data(belief_bias_data)
-    belief_bias_dataset = csv_dataset(os.path.join(DATA_DIR, "belief_bias.csv"))
+BASE_DIR = pathlib.Path(__file__).parent.resolve()
 
-    # Generate dialogue
-    return Task(
-        dataset=belief_bias_dataset,
-        solver=dialogue_solver(
-            # TODO: add arguments for models from config
-            risk_type = risks_json["belief_bias"]["name"],
-            risk_definition = risks_json["belief_bias"]["definition"],
-        ),
-        #TODO: make scorer to evaluate risk severity and probability for only flagged conversations
+with open(
+     os.path.join(BASE_DIR, "config.json"), 'r') as f:
+        config_json = json.load(f)
+
+DATA_DIR = config_json["data_dir"]
+
+with open(os.path.join(DATA_DIR, "risks.json"), 'r') as f:
+    risks_json = json.load(f)
+
+user_model = get_model(
+    config_json["user_model"]["name"],
+    config=GenerateConfig(**config_json["user_model"]["config"])
+)
+
+assistant_model = get_model(
+    config_json["assistant_model"]["name"],
+    config=GenerateConfig(**config_json["assistant_model"]["config"])
+)
+
+monitoring_model_1 = get_model(
+    config_json["monitoring_model_1"]["name"],
+    config=GenerateConfig(**config_json["monitoring_model_1"]["config"])
+)
+
+monitoring_model_2 = get_model(
+    config_json["monitoring_model_2"]["name"],
+    config=GenerateConfig(**config_json["monitoring_model_2"]["config"])
+)
+
+def initialise_data(generator: DataGenerator):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+    
+    data = generator.generate_data()
+    generator.save_data(data)
+
+if config_json["tasks_to_run"]["belief_bias"]:
+    initialise_data(BeliefBias())
+    eval(
+         belief_bias_task, 
+         model_roles={
+                "user": user_model,
+                "assistant": assistant_model,
+                "monitor_1": monitoring_model_1,
+                "monitor_2": monitoring_model_2
+         }
     )
-
-
+    
